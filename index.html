@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>BOLA 3D — Sepakbola Mobile</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0a0e1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#0a0e1a; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; color:#fff; touch-action:none; overscroll-behavior:none; }
+  #app { position:fixed; inset:0; }
+  #c3d { width:100%; height:100%; display:block; }
+  /* HUD */
+  #hud { position:absolute; top:calc(10px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); display:none; align-items:center; gap:10px; background:rgba(8,12,20,.82); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:8px 16px; font-weight:700; z-index:20; backdrop-filter:blur(6px); white-space:nowrap; }
+  #score { font-size:17px; letter-spacing:.5px; }
+  #clock { font-size:13px; color:#ffc93c; font-variant-numeric:tabular-nums; }
+  #half { font-size:11px; color:#9fb3c8; background:rgba(255,255,255,.1); padding:3px 8px; border-radius:6px; }
+  #pause-btn { position:absolute; top:calc(10px + env(safe-area-inset-top)); right:12px; z-index:20; background:rgba(8,12,20,.82); border:1px solid rgba(255,255,255,.14); color:#fff; border-radius:10px; width:40px; height:40px; font-size:17px; }
+  /* radar */
+  #radar { position:absolute; bottom:calc(118px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:15; border-radius:8px; border:1px solid rgba(255,255,255,.18); }
+  /* commentary */
+  #commentary { position:absolute; bottom:calc(222px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:15; background:rgba(8,12,20,.78); padding:8px 18px; border-radius:20px; font-size:14px; font-weight:600; opacity:0; transition:opacity .4s; white-space:nowrap; max-width:92vw; overflow:hidden; text-overflow:ellipsis; border:1px solid rgba(255,201,60,.35); }
+  #banner { position:absolute; top:34%; left:50%; transform:translate(-50%,-50%) rotate(-4deg); z-index:30; display:none; font-size:min(19vw,110px); font-weight:900; font-style:italic; color:#ffc93c; text-shadow:0 6px 0 #7a4d00, 0 12px 32px rgba(0,0,0,.6); letter-spacing:2px; }
+  /* touch controls */
+  #touch { display:none; position:absolute; inset:0; z-index:18; pointer-events:none; }
+  #joy-zone { position:absolute; left:0; bottom:0; width:46%; height:62%; pointer-events:auto; }
+  #joy-base { position:absolute; width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%; background:rgba(255,255,255,.09); border:2px solid rgba(255,255,255,.25); display:none; }
+  #joy-knob { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%; background:rgba(255,201,60,.85); box-shadow:0 4px 14px rgba(0,0,0,.4); }
+  #btns { position:absolute; right:14px; bottom:calc(24px + env(safe-area-inset-bottom)); display:grid; grid-template-columns:repeat(2,74px); gap:12px; pointer-events:auto; }
+  .tbtn { width:74px; height:74px; border-radius:50%; border:2px solid rgba(255,255,255,.28); background:rgba(10,16,28,.62); color:#fff; font-size:11px; font-weight:800; letter-spacing:.5px; backdrop-filter:blur(4px); }
+  .tbtn:active { background:rgba(255,201,60,.5); transform:scale(.93); }
+  #b-shoot { border-color:#ffc93c; color:#ffc93c; width:84px; height:84px; }
+  #btns > div { grid-column:1 / -1; display:flex; gap:12px; justify-content:flex-end; }
+  /* menus */
+  .screen { position:absolute; inset:0; z-index:40; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:radial-gradient(120% 100% at 50% 0%, #16213a 0%, #0a0e1a 70%); padding:24px; text-align:center; }
+  .title { font-size:min(15vw,64px); font-weight:900; font-style:italic; letter-spacing:1px; }
+  .title span { color:#ffc93c; }
+  .sub { color:#9fb3c8; font-size:14px; }
+  .pick-label { font-size:12px; letter-spacing:2px; color:#9fb3c8; margin-bottom:-8px; }
+  .teams { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+  .team { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.07); border:2px solid transparent; color:#fff; padding:10px 16px; border-radius:12px; font-weight:700; font-size:14px; }
+  .team.on { border-color:#ffc93c; background:rgba(255,201,60,.14); }
+  .dot { width:16px; height:16px; border-radius:50%; display:inline-block; }
+  .big-btn { background:#ffc93c; color:#101623; border:none; font-size:19px; font-weight:900; letter-spacing:1px; padding:16px 54px; border-radius:16px; box-shadow:0 8px 24px rgba(255,201,60,.35); }
+  .big-btn:active { transform:scale(.96); }
+  .ghost-btn { background:transparent; color:#9fb3c8; border:1px solid rgba(255,255,255,.25); padding:12px 30px; border-radius:12px; font-weight:700; }
+  #half-pick { display:flex; gap:10px; }
+  #half-pick button { background:rgba(255,255,255,.07); border:2px solid transparent; color:#fff; padding:10px 20px; border-radius:12px; font-weight:800; }
+  #half-pick button.on { border-color:#ffc93c; }
+  #fulltime { display:none; }
+  #ft-score { font-size:min(12vw,52px); font-weight:900; }
+  #ft-msg { color:#9fb3c8; max-width:420px; line-height:1.5; }
+  .hint { font-size:12px; color:#5b6b82; line-height:1.7; }
+  kbd { background:rgba(255,255,255,.12); padding:2px 8px; border-radius:6px; font-family:inherit; }
+  @media (max-width:520px) {
+    #hud { padding:6px 10px; gap:7px; }
+    #score { font-size:14px; }
+    #clock { font-size:12px; }
+    #radar { top:calc(60px + env(safe-area-inset-top)); bottom:auto; left:10px; transform:none; width:104px; height:70px; }
+    #commentary { bottom:auto; top:calc(140px + env(safe-area-inset-top)); font-size:12px; }
+    #btns { grid-template-columns:repeat(2,64px); gap:10px; right:10px; }
+    .tbtn { width:64px; height:64px; font-size:10px; }
+    #b-shoot { width:72px; height:72px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="c3d"></canvas>
+
+  <div id="hud">
+    <span id="score">GRD 0 - 0 BIR</span>
+    <span id="clock">00:00</span>
+    <span id="half">1ST</span>
+  </div>
+  <button id="pause-btn">II</button>
+  <canvas id="radar" width="150" height="100"></canvas>
+  <div id="commentary"></div>
+  <div id="banner">GOOOL!</div>
+
+  <div id="touch">
+    <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+    <div id="btns">
+      <button class="tbtn" id="b-shoot">TENDANG</button>
+      <button class="tbtn" id="b-pass">UMPAN</button>
+      <button class="tbtn" id="b-sprint">SPRINT</button>
+      <div style="display:flex;gap:12px">
+        <button class="tbtn" id="b-slide" style="width:64px;height:64px">TEKEL</button>
+        <button class="tbtn" id="b-switch" style="width:64px;height:64px">GANTI</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="menu">
+    <div class="title">BOLA <span>3D</span></div>
+    <div class="sub">Sepakbola 11 vs 11 di HP kamu</div>
+    <div class="pick-label">TIM KAMU</div>
+    <div class="teams" id="home-pick"></div>
+    <div class="pick-label">LAWAN</div>
+    <div class="teams" id="away-pick"></div>
+    <div class="pick-label">DURASI BABAK</div>
+    <div id="half-pick">
+      <button data-m="2">2 mnt</button><button data-m="4" class="on">4 mnt</button><button data-m="6">6 mnt</button>
+    </div>
+    <button class="big-btn" id="kickoff-btn">KICK OFF</button>
+    <div class="hint">Kontrol: joystick kiri untuk gerak · UMPAN/TENDANG kanan<br>TEKEL saat bertahan · GANTI untuk tukar pemain<br>Keyboard: <kbd>WASD</kbd> <kbd>J</kbd> umpan <kbd>K</kbd> tendang <kbd>L</kbd> tekel <kbd>Spasi</kbd> ganti</div>
+  </div>
+
+  <div class="screen" id="pause-menu" style="display:none">
+    <div class="title" style="font-size:40px">JEDA</div>
+    <button class="big-btn" id="resume-btn">LANJUT</button>
+    <button class="ghost-btn" id="quit-btn">Keluar ke menu</button>
+  </div>
+
+  <div class="screen" id="fulltime">
+    <div class="pick-label">HASIL AKHIR</div>
+    <div id="ft-score">GRD 0 - 0 BIR</div>
+    <div id="ft-msg"></div>
+    <button class="big-btn" id="rematch-btn">MAIN LAGI</button>
+    <button class="ghost-btn" id="ft-menu-btn">Ganti tim</button>
+  </div>
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
